@@ -59,6 +59,17 @@ func Contains[T comparable](slice []T, item T) bool {
 	return false
 }
 
+// Count returns the number of occurrences item is found in the slice.
+func Count[T comparable](slice []T, item T) int {
+	count := 0
+	for i := 0; i < len(slice); i++ {
+		if slice[i] == item {
+			count++
+		}
+	}
+	return count
+}
+
 // Remove will remove all instances of a given element from the slice and return
 // the count of items removed.
 func Remove[T comparable](slice []T, item T) ([]T, int) {
@@ -75,8 +86,8 @@ func Remove[T comparable](slice []T, item T) ([]T, int) {
 
 // Map creates a new slice mapping the values that result from applying the
 // map function.
-func Map[T any](slice []T, fn func(item T) T) []T {
-	results := make([]T, 0)
+func Map[T, R any](slice []T, fn func(item T) R) []R {
+	results := make([]R, 0)
 	for i := 0; i < len(slice); i++ {
 		results = append(results, fn(slice[i]))
 	}
@@ -118,4 +129,58 @@ func Batch[T any](slice []T, batchSize int) [][]T {
 		batches = append(batches, slice[i:end])
 	}
 	return batches
+}
+
+// Equal compares two slices to determine if they are equal. Slices are considered
+// equals if their lengths are the same and each element is the same, IE order
+// matters.
+func Equal[T comparable](s1, s2 []T) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	for i := 0; i < len(s1); i++ {
+		if s1[i] != s2[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Clone creates a new slice and copies the contents of the provided slice into
+// the returned slice. If slice is nil then nil is returned to preserve nil.
+func Clone[T any](slice []T) []T {
+	if slice == nil {
+		return nil
+	}
+	cloned := make([]T, len(slice))
+	copy(cloned, slice)
+	return cloned
+}
+
+// Index returns the index of the first occurrence of item found in the slice.
+// If the item wasn't found in the slice -1 is returned.
+func Index[T comparable](slice []T, item T) int {
+	for i := 0; i < len(slice); i++ {
+		if slice[i] == item {
+			return i
+		}
+	}
+	return -1
+}
+
+// Insert inserts an item at the given index of the slice and returns the modified
+// slice. If the index is out of bounds this will panic.
+func Insert[T any](slice []T, idx int, item T) []T {
+	tot := len(slice) + 1
+	if tot <= cap(slice) {
+		s2 := slice[:tot]
+		copy(s2[idx+1:], slice[idx:])
+		copy(s2[idx:], []T{item})
+		return s2
+	}
+	s2 := make([]T, tot)
+	copy(s2, slice[:idx])
+	copy(s2[idx:], []T{item})
+	copy(s2[idx+1:], slice[idx:])
+	return s2
 }

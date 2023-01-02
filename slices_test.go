@@ -383,3 +383,197 @@ func TestRemove(t *testing.T) {
 		}
 	}
 }
+
+func TestCount(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []int
+		item int
+		want int
+	}{
+		{
+			name: "Nil Slice",
+			arg:  nil,
+			item: 10,
+			want: 0,
+		},
+		{
+			name: "Empty Slice",
+			arg:  []int{},
+			item: 10,
+			want: 0,
+		},
+		{
+			name: "Doesn't Contain Item",
+			arg:  []int{0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0},
+			item: 6,
+			want: 0,
+		},
+		{
+			name: "Expected Count 2",
+			arg:  []int{0, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0},
+			item: 5,
+			want: 2,
+		},
+	}
+
+	for _, test := range tests {
+		count := Count(test.arg, test.item)
+		if count != test.want {
+			t.Errorf("Test Case %s failed", test.name)
+			t.Errorf("Count didn't return expected %d, got %d", test.want, count)
+		}
+	}
+}
+
+func TestClone(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		want []string
+	}{
+		{
+			name: "Nil Slice",
+			arg:  nil,
+			want: nil,
+		},
+		{
+			name: "Empty Slice",
+			arg:  []string{},
+			want: []string{},
+		},
+		{
+			name: "String Slice",
+			arg:  []string{"hello", "world", "this", "is", "great"},
+			want: []string{"hello", "world", "this", "is", "great"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := Clone(test.arg)
+			if diff := cmp.Diff(test.want, actual); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
+
+func TestEqual(t *testing.T) {
+	tests := []struct {
+		name string
+		arg1 []string
+		arg2 []string
+		want bool
+	}{
+		{
+			name: "Nil Slices",
+			arg1: nil,
+			arg2: nil,
+			want: true,
+		},
+		{
+			name: "Empty Slices",
+			arg1: []string{},
+			arg2: []string{},
+			want: true,
+		},
+		{
+			name: "Not Equal - Subset",
+			arg1: []string{"1", "2", "3", "4", "5"},
+			arg2: []string{"1", "2", "3", "4"},
+			want: false,
+		},
+		{
+			name: "Not Equal - Different Order/Elements",
+			arg1: []string{"1", "2", "3", "4", "5"},
+			arg2: []string{"5", "4", "3", "2", "1"},
+			want: false,
+		},
+		{
+			name: "Equal",
+			arg1: []string{"1", "2", "3", "4", "5"},
+			arg2: []string{"1", "2", "3", "4", "5"},
+			want: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := Equal(test.arg1, test.arg2)
+			if diff := cmp.Diff(test.want, actual); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
+
+func TestIndex(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		item string
+		want int
+	}{
+		{
+			name: "Nil Slice",
+			arg:  nil,
+			item: "hello",
+			want: -1,
+		},
+		{
+			name: "Does Exist",
+			arg:  []string{"hello", "world", "feel", "the", "power"},
+			item: "tower",
+			want: -1,
+		},
+		{
+			name: "Should Return 3",
+			arg:  []string{"hello", "world", "feel", "the", "power"},
+			item: "the",
+			want: 3,
+		},
+		{
+			name: "Contains Multiple",
+			arg:  []string{"hello", "world", "hello", "world"},
+			item: "world",
+			want: 1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := Index(test.arg, test.item)
+			if diff := cmp.Diff(test.want, actual); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
+
+func TestInsert(t *testing.T) {
+	tests := []struct {
+		name string
+		arg  []string
+		idx  int
+		item string
+		want []string
+	}{
+		{
+			name: "Insert Middle",
+			arg:  []string{"Hello", "Gopher!"},
+			idx:  1,
+			item: "World",
+			want: []string{"Hello", "World", "Gopher!"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := Insert(test.arg, test.idx, test.item)
+			if diff := cmp.Diff(test.want, actual); diff != "" {
+				t.Errorf(diff)
+			}
+		})
+	}
+}
