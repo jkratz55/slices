@@ -48,6 +48,17 @@ func FindAll[T any](slice []T, fn Predicate[T]) []T {
 	return results
 }
 
+// TakeIf iterates through a slice and all elements that satisfy the predicate
+// are passed to a function/closure to be processed. TakeIf is similar to Filter
+// but doesn't incur the overhead of creating and returning another slice.
+func TakeIf[T any](slice []T, pred Predicate[T], fn func(T)) {
+	for i := 0; i < len(slice); i++ {
+		if pred(slice[i]) {
+			fn(slice[i])
+		}
+	}
+}
+
 // Contains returns true if the slice contains at least one occurrence of the
 // specified element.
 func Contains[T comparable](slice []T, item T) bool {
@@ -70,6 +81,17 @@ func Count[T comparable](slice []T, item T) int {
 	return count
 }
 
+// CountBy returns the number of occurrences that satisfy the predicate.
+func CountBy[T any](in []T, pred Predicate[T]) int {
+	count := 0
+	for i := 0; i < len(in); i++ {
+		if pred(in[i]) {
+			count++
+		}
+	}
+	return count
+}
+
 // Remove will remove all instances of a given element from the slice and return
 // the count of items removed.
 func Remove[T comparable](slice []T, item T) ([]T, int) {
@@ -86,12 +108,36 @@ func Remove[T comparable](slice []T, item T) ([]T, int) {
 
 // Map creates a new slice mapping the values that result from applying the
 // map function.
-func Map[T, R any](slice []T, fn func(item T) R) []R {
+func Map[T, R any](slice []T, mapper func(item T) R) []R {
 	results := make([]R, 0)
 	for i := 0; i < len(slice); i++ {
-		results = append(results, fn(slice[i]))
+		results = append(results, mapper(slice[i]))
 	}
 	return results
+}
+
+// FlatMap creates a new slice mapping the values that result from applying
+// the mapper function.
+func FlatMap[T, R any](slice []T, mapper func(item T) []R) []R {
+	results := make([]R, 0)
+	for i := 0; i < len(slice); i++ {
+		results = append(results, mapper(slice[i])...)
+	}
+	return results
+}
+
+// Accumulator is a function type use to reduce a slice to an accumulated value.
+// It takes the current accumulated value and item from a slice returning the
+// updated result.
+type Accumulator[T, R any] func(agg R, item T) R
+
+// Reduce reduces a slice to a value that is accumulated by iterating over each
+// element in the slice.
+func Reduce[T, R any](slice []T, accum Accumulator[T, R], val R) R {
+	for _, item := range slice {
+		val = accum(val, item)
+	}
+	return val
 }
 
 // Reverse reverses the elements of a slice/array in place.
@@ -109,6 +155,26 @@ func Shuffle[T any](s []T) {
 	})
 }
 
+// Chunk accepts a slice and a size splitting the slice into chunks with a max length
+// of the provided size. If the slice cannot be split evenly the last slice will contain
+// all the remaining elements.
+//
+// Providing a size less than 1 will result in a panic.
+func Chunk[T any](slice []T, size int) [][]T {
+	if size < 1 {
+		panic("illegal size, cannot create chunks whose size is less than 1")
+	}
+	chunks := make([][]T, 0)
+	for i := 0; i < len(slice); i += size {
+		end := i + size
+		if end > len(slice) {
+			end = len(slice)
+		}
+		chunks = append(chunks, slice[i:end])
+	}
+	return chunks
+}
+
 // Batch accepts a slice and a batch size returning the subset of the original slice
 // according to the batch size provided.
 //
@@ -116,19 +182,11 @@ func Shuffle[T any](s []T) {
 // in chunks for performance reasons.
 //
 // Providing a batch size less than 1 will result in a panic.
+//
+// DEPRECATED: Use Chunk instead. Batch wasn't the best naming choice and Chunk makes
+// more sense.
 func Batch[T any](slice []T, batchSize int) [][]T {
-	if batchSize < 1 {
-		panic("illegal batchSize, batch size cannot be less than 1")
-	}
-	batches := make([][]T, 0)
-	for i := 0; i < len(slice); i += batchSize {
-		end := i + batchSize
-		if end > len(slice) {
-			end = len(slice)
-		}
-		batches = append(batches, slice[i:end])
-	}
-	return batches
+	return Chunk(slice, batchSize)
 }
 
 // Equal compares two slices to determine if they are equal. Slices are considered
@@ -183,4 +241,124 @@ func Insert[T any](slice []T, idx int, item T) []T {
 	copy(s2[idx:], []T{item})
 	copy(s2[idx+1:], slice[idx:])
 	return s2
+}
+
+// Flatten accepts a slice of slices and flattens it into a new one dimensional
+// slice.
+func Flatten[T any](slice [][]T) []T {
+	res := make([]T, 0)
+	for i := range slice {
+		res = append(res, slice[i]...)
+	}
+	return res
+}
+
+// Unique returns a new slice that doesn't contain any duplicate elements. If the
+// slice contains duplicates only the first occurrence is kept.
+func Unique[T comparable](in []T) []T {
+	result := make([]T, 0, len(in))
+	seen := make(map[T]struct{}, len(in))
+
+	for i := 0; i < len(in); i++ {
+		item := in[i]
+		if _, ok := seen[item]; ok {
+			continue
+		}
+
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
+}
+
+// GroupBy iterates over a slice and groups the results by the key generated from
+// the grouper function.
+func GroupBy[T any, U comparable](in []T, grouper func(item T) U) map[U][]T {
+	result := make(map[U][]T)
+	for _, item := range in {
+		key := grouper(item)
+		result[key] = append(result[key], item)
+	}
+	return result
+}
+
+// PartitionBy splits an array/slice into partitions determined by a partitioner
+// function.
+func PartitionBy[T any, U comparable](in []T, partitioner func(item T) U) [][]T {
+	result := make([][]T, 0)
+	seen := make(map[U]int)
+
+	for _, item := range in {
+		key := partitioner(item)
+		idx, ok := seen[key]
+		if !ok {
+			idx = len(result)
+			seen[key] = idx
+			result = append(result, make([]T, 0))
+		}
+		result[idx] = append(result[idx], item)
+	}
+	return result
+}
+
+// Pair is a type representing a pair of values
+type Pair[T, U any] struct {
+	First  T
+	Second U
+}
+
+// Zip accepts two arrays/slices and zip the values together returning a slice of
+// Pairs. If the two arrays/slices are not of equal lengths this function will
+// panic.
+func Zip[T, U any](left []T, right []U) []Pair[T, U] {
+	if len(left) != len(right) {
+		panic("cannot zip slices of different lengths")
+	}
+	pairs := make([]Pair[T, U], 0, len(left))
+	for idx, item := range left {
+		pairs = append(pairs, Pair[T, U]{
+			First:  item,
+			Second: right[idx],
+		})
+	}
+	return pairs
+}
+
+// Associate converts a slice into a map by running each element through a transformer
+// which returns a key and value. If any elements generate the same key the last value
+// will overwrite the current value.
+func Associate[T any, K comparable, V any](in []T, transformer func(item T) (K, V)) map[K]V {
+	res := make(map[K]V, len(in))
+	for _, item := range in {
+		k, v := transformer(item)
+		res[k] = v
+	}
+	return res
+}
+
+// Replace iterates over the slice replacing the target item with the new item in
+// place up the n times. An n value of -1 has the same effect as using ReplaceAll.
+func Replace[T comparable](in []T, old T, new T, n int) {
+	for i := range in {
+		if in[i] == old && n != 0 {
+			in[i] = new
+			n--
+		}
+	}
+}
+
+// ReplaceAll iterates over the slice replacing all instances of old with the new
+// value in place.
+func ReplaceAll[T comparable](in []T, old T, new T) {
+	Replace(in, old, new, -1)
+}
+
+// ReplaceIf iterates over a slice and replaces all elements that satisfy the
+// predicate with the new value in place.
+func ReplaceIf[T any](in []T, newVal T, pred Predicate[T]) {
+	for i := range in {
+		if pred(in[i]) {
+			in[i] = newVal
+		}
+	}
 }
