@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+var (
+	random = rand.New(rand.NewSource(time.Now().UnixNano()))
+)
 
 // Predicate represents a predicate (boolean-value function) of one argument
 type Predicate[T any] func(t T) bool
@@ -150,7 +150,7 @@ func Reverse[T any](s []T) {
 // Shuffle accepts a slice and shuffles the elements of the slice randomly
 // in place.
 func Shuffle[T any](s []T) {
-	rand.Shuffle(len(s), func(i, j int) {
+	random.Shuffle(len(s), func(i, j int) {
 		s[i], s[j] = s[j], s[i]
 	})
 }
