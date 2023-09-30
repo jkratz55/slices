@@ -1,7 +1,9 @@
 package slices
 
 import (
+	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 )
 
@@ -361,4 +363,60 @@ func ReplaceIf[T any](in []T, newVal T, pred Predicate[T]) {
 			in[i] = newVal
 		}
 	}
+}
+
+// Concat takes an arbitrary set of slices and concatenates them in order returning
+// a new slice.
+func Concat[S ~[]E, E any](slices ...S) S {
+	size := 0
+	for _, s := range slices {
+		size += len(s)
+	}
+
+	newSlice := make(S, size)
+	i := 0
+
+	for _, s := range slices {
+		for j := 0; j < len(s); j, i = j+1, i+1 {
+			newSlice[i] = s[j]
+		}
+	}
+
+	return newSlice
+}
+
+// ForEachParallel iterates through a slice in parallel using the specified
+// amount of parallelism.
+func ForEachParallel[T any](slice []T, fn func(T), parallelism int) {
+
+	if parallelism < 1 {
+		panic(fmt.Errorf("parallelism less than 0 not permitted"))
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(parallelism)
+
+	chanSize := parallelism * 4
+	if chanSize > len(slice) {
+		chanSize = len(slice)
+	}
+
+	queue := make(chan T, chanSize)
+	for i := 0; i < parallelism; i++ {
+		go func() {
+			defer wg.Done()
+			for v := range queue {
+				fn(v)
+			}
+		}()
+	}
+
+	go func() {
+		for j := 0; j < len(slice); j++ {
+			queue <- slice[j]
+		}
+		close(queue)
+	}()
+
+	wg.Wait()
 }

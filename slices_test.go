@@ -2,8 +2,10 @@ package slices
 
 import (
 	"math"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1069,6 +1071,74 @@ func TestReplaceIf(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ReplaceIf(test.in, test.new, test.pred)
 			assert.Equal(t, test.expected, test.in)
+		})
+	}
+}
+
+func TestConcat(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       [][]int
+		expected []int
+	}{
+		{
+			name: "Concat Three Int Slices",
+			in: [][]int{
+				{
+					0, 1, 2, 3, 4,
+				},
+				{
+					5, 6, 7, 8, 9,
+				},
+				{
+					10, 11, 12, 13, 14,
+				},
+			},
+			expected: []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := Concat(test.in...)
+			assert.Equal(t, test.expected, actual)
+		})
+	}
+}
+
+func TestForEachParallel(t *testing.T) {
+
+	var total uint64
+
+	tests := []struct {
+		name          string
+		dataGenerator func() []int
+		fn            func(int)
+		parallelism   int
+		expected      uint64
+	}{
+		{
+			name: "Add Tons of Numbers",
+			dataGenerator: func() []int {
+				data := make([]int, 1000000)
+				for i := 0; i < 1000000; i++ {
+					data[i] = 1
+				}
+				return data
+			},
+			fn: func(i int) {
+				atomic.AddUint64(&total, uint64(i))
+			},
+			parallelism: runtime.GOMAXPROCS(0),
+			expected:    1000000,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			in := test.dataGenerator()
+			ForEachParallel(in, test.fn, test.parallelism)
+			assert.Equal(t, test.expected, total)
 		})
 	}
 }
